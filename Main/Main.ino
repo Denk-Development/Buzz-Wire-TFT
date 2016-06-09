@@ -16,7 +16,7 @@ enum GameState {
 };
 
 // game constants
-const unsigned long minGameTimeMillis = 1000;
+const unsigned long minGameTimeMillis = 1000, minTimeBetweenTwoMistakes = 1000, autoRestartMillis = 10000, minGameOverScreenMillis = minGameTimeMillis;
 
 // screen constants
 const int paddingLeft = 10; // for non-centered labels
@@ -25,13 +25,13 @@ const int paddingLeft = 10; // for non-centered labels
 const uint8_t TFT_RST = 8, TFT_DC = 9, TFT_CS = 10, TFT_MOSI = 11, TFT_MISO = 12, TFT_CLK = 13;
 
 // buzz wire pinning
-const uint8_t startStopPin = 2;
+const uint8_t startStopPin = 2, mistakePin = 3;
 
 const int BG_COLOR = ILI9341_BLACK;
 
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_MOSI, TFT_CLK, TFT_RST, TFT_MISO);
 
-Label *lblTitle, *lblSubtitle, *lblPenaltyTimeTitle, *lblPenaltyTime, *lblTime, *lblMistakes, *lblTotal, *lblTimeValue, *lblMistakesValue, *lblTotalValue;
+Label *lblTitle, *lblSubtitle, *lblPenaltyTimeTitle, *lblPenaltyTime, *lblTime, *lblMistakes, *lblTotal, *lblTimeValue, *lblMistakesValue, *lblTotalValue, *lblGameOver;
 
 GameState gameState = GameState::Start;
 
@@ -52,6 +52,7 @@ void setup()
 
   // buzz wire pins
   pinMode(startStopPin, INPUT_PULLUP);
+  pinMode(mistakePin, INPUT_PULLUP);
   
   tft.begin();
   tft.setRotation(1);
@@ -73,6 +74,7 @@ void setup()
   lblTotalValue = new Label(&tft, lblTotal->getRightX() + 10, lblMistakes->getBottomY() + 10, ILI9341_WHITE, BG_COLOR, 3, "", true);
 
   // over
+  lblGameOver = new Label(&tft, lblTotal->getBottomY() + 30, ILI9341_BLUE, BG_COLOR, 3, "Game Over", true);
   
   delay(2000);
 }
@@ -102,7 +104,8 @@ void loop()
   #ifdef DEBUG
     Serial.println("GameState::Running");
   #endif
-  unsigned long startMillis = millis(); 
+  unsigned long startMillis = millis();
+  unsigned long lastMistake = 0;
   unsigned int mistakesCount = 0;
   lblTime->show();
   lblMistakes->show();
@@ -114,7 +117,13 @@ void loop()
     double secondsElapsed = (double)(millis() - startMillis) / (double)1000;
     lblTimeValue->setText(floatToString(secondsElapsed, 1) + " s");
     lblMistakesValue->setText(String(mistakesCount));
-    lblTotalValue->setText(floatToString(secondsElapsed * mistakesCount, 1) + " s");
+    lblTotalValue->setText(floatToString(secondsElapsed + mistakesCount * penaltyTime, 1) + " s");
+
+    // mistake detection
+    if (!digitalRead(mistakePin) && (mistakesCount == 0 || millis() > lastMistake + minTimeBetweenTwoMistakes)) {
+      mistakesCount++;
+      lastMistake = millis();
+    }
 
     // exit loop
     if (!digitalRead(startStopPin) && millis() > startMillis + minGameTimeMillis) { // LOW pin stops game and min time elapsed
@@ -128,9 +137,23 @@ void loop()
     Serial.println("GameState::Over");
   #endif
   unsigned long endMillis = millis();
+  lblGameOver->show();
   while (gameState == GameState::Over) {
-    
+    if (millis() > endMillis + autoRestartMillis) {
+      gameState = GameState::Start;
+    }
+    // exit loop
+    if (!digitalRead(startStopPin) && millis() > endMillis + minGameOverScreenMillis) { // LOW pin stops game over screen
+      gameState = GameState::Start;
+    }
   }
+  lblTime->hide();
+  lblMistakes->hide();
+  lblTotal->hide();
+  lblTimeValue->hide();
+  lblMistakesValue->hide();
+  lblTotalValue->hide();
+  lblGameOver->hide();
 }
 
 int readPenaltyTime() {

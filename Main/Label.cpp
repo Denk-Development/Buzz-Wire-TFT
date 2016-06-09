@@ -99,7 +99,7 @@ private:
     unsigned int charsCount = (this->text.length() > this->oldText.length()) ? this->text.length() : this->oldText.length();
     
     for (unsigned int i = 0; i < charsCount; i++) {
-      if (!this->centered) {
+      if (!this->hidden && !this->centered) {
         // overwriting is not necessary if the text is not centered
         if (i < this->oldText.length() && i < this->text.length() && this->oldText.charAt(i) == this->text.charAt(i)) {
           this->tft->setCursor(this->x + (i + 1) * 6 * this->textSize, this->y);
