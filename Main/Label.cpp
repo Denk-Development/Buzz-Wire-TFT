@@ -2,8 +2,6 @@
   #include "Adafruit_ILI9341.h"
 #endif
 
-// Issues: If text length changes for centered text the text is off center and the old text is not fully removed.
-
 class Label {
 public:
   Label()
@@ -55,6 +53,8 @@ public:
   }
 
   void show() {
+    this->oldX = 0;
+    this->oldText = "";
     this->hidden = false;
     this->refresh();
   }
