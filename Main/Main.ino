@@ -20,6 +20,12 @@ enum GameState {
   Over
 };
 
+enum GameType {
+  Choice,
+  Single,
+  Multi
+};
+
 
 // PINNING
 
@@ -48,8 +54,11 @@ Label *lblTitle, *lblSubtitle, *lblPenaltyTimeTitle, *lblPenaltyTime, *lblTime, 
 
 GameState gameState = GameState::Start, lastGameState = GameState::Init;
 
+GameType gameType = GameType::Choice;
+
 int penaltyTime = 5; // 5 seconds by default
 
+// helper function to convert floating point numbers to strings
 String floatToString(float x, byte precision = 2) {
   char tmp[50];
   dtostrf(x, 0, precision, tmp);
@@ -101,6 +110,7 @@ void setup()
 void loop()
 {
   int touchX, touchY;
+  bool touched = false;
   
   unsigned long startMillis, endMillis, lastMistake;
   unsigned int mistakesCount;
@@ -119,6 +129,8 @@ void loop()
 
     // touch events
     if (touch.Pressed()) {
+      touched = true;
+      
       // read coords
       touchX = touch.X(); 
       touchY = touch.Y();
@@ -139,6 +151,13 @@ void loop()
     if (gameState == GameState::Start) {
       penaltyTime = readPenaltyTime();
       lblPenaltyTime->setText(String(penaltyTime) + " s"); // updateLabel
+
+      if (lblPenaltyTime->clicked(touchX, touchY)) {
+        lblPenaltyTime->showBorder(ILI9341_WHITE);
+      }
+      else if (touched) {
+        lblPenaltyTime->hideBorder();
+      }
   
       // exit loop
       if (!digitalRead(startStopPin)) { // LOW pin starts game
@@ -200,6 +219,9 @@ void loop()
       #endif
       endMillis = millis();
       lblGameOver->show();
+
+      // don't enter this if the next time
+      lastGameState = GameState::Over;
     }
     if (gameState == GameState::Over) {
       if (millis() > endMillis + autoRestartMillis) {
@@ -218,10 +240,11 @@ void loop()
       lblMistakesValue->hide();
       lblTotalValue->hide();
       lblGameOver->hide();
-
-      // don't enter this if the next time
-      lastGameState = GameState::Over;
     }
+
+
+    // end of loop
+    touched = false; // prevent multiple clicks with old coords
   }
 }
 

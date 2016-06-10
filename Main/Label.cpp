@@ -50,6 +50,7 @@ public:
     this->oldX = this->x;
     this->oldText = this->text;
     this->refresh();
+    this->hideBorder();
   }
 
   void show() {
@@ -60,11 +61,11 @@ public:
   }
 
   int getHeight() const {
-    return 6 * this->textSize;
+    return 8 * this->textSize;
   }
 
   int getWidth() const {
-    return this->textSize * 8 * this->text.length();
+    return this->textSize * 6 * this->text.length();
   }
 
   int getRightX() const {
@@ -75,6 +76,17 @@ public:
     return this->getHeight() + this->y;
   }
 
+  void showBorder(int borderColor) {
+    this->borderColor = borderColor;
+    this->borderShown = true;
+    this->drawBorder();
+  }
+
+  void hideBorder() {
+    this->borderShown = false;
+    this->tft->drawRect(this->x, this->y, this->getRightX() - this->x, this->getBottomY() - this->y, this->bgColor);
+  }
+
   bool clicked(int x, int y) const {
     return (this->x <= x && this->getRightX() >= x &&
       this->y <= y && this->getBottomY() >= y);
@@ -82,11 +94,14 @@ public:
   
 private:
   Adafruit_ILI9341 *tft;
-  int x, oldX, y, color, bgColor, textSize, oldTextLength;
+  int x, oldX, y, color, bgColor, textSize, oldTextLength, borderColor;
   String text, oldText = "";
-  bool hidden, centered;
+  bool hidden, centered, borderShown = false;
 
   void refresh() {
+    this->hideBorder();
+    // ISSUE: centerd text would not fully remove the border
+    
     if (this->centered) {
       // clear old area
       this->tft->fillRect(
@@ -126,5 +141,13 @@ private:
         this->tft->print(this->text.charAt(i));
       }
     }
+
+    if (this->borderShown) {
+      this->drawBorder();
+    }
+  }
+
+  void drawBorder() {
+    this->tft->drawRect(this->x, this->y, this->getRightX() - this->x, this->getBottomY() - this->y, this->borderColor);
   }
 };
