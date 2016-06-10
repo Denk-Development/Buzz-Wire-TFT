@@ -74,6 +74,11 @@ public:
   int getBottomY() const {
     return this->getHeight() + this->y;
   }
+
+  bool clicked(int x, int y) const {
+    return (this->x <= x && this->getRightX() >= x &&
+      this->y <= y && this->getBottomY() >= y);
+  }
   
 private:
   Adafruit_ILI9341 *tft;
