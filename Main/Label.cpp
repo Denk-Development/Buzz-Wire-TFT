@@ -101,13 +101,26 @@ private:
   void refresh() {
     this->hideBorder();
     // ISSUE: centerd text would not fully remove the border
-    
+
+    #ifdef DEBUG
+      if (this->hidden) {
+        Serial.println("Label hidden");
+        Serial.print("x = "); Serial.println(this->oldX);
+        Serial.print("y = "); Serial.println(this->y);
+        Serial.print("width = "); Serial.println(6 * this->textSize * this->oldText.length());
+        Serial.print("height = "); Serial.println(this->textSize * 8);
+        Serial.print("oldText = "); Serial.println(this->oldText);
+        Serial.print("text = "); Serial.println(this->text);
+      }
+    #endif
+    int textLength = this->oldText.length();
+    if (this->oldText.length() == 0) textLength = this->text.length();
     if (this->centered) {
       // clear old area
       this->tft->fillRect(
         this->oldX,
         this->y,
-        6 * this->textSize * this->oldText.length(), // width of the text
+        6 * this->textSize * textLength, // width of the text
         this->textSize * 8, // height of the text
         this->bgColor);
     }

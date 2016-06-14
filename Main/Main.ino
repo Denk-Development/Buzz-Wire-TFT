@@ -16,8 +16,11 @@
 enum GameState {
   Init,
   Start,
+  GameTypeSelection,
+  NameEntry,
   Running,
-  Over
+  Over,
+  Ranks
 };
 
 enum GameType {
@@ -47,10 +50,21 @@ const int paddingLeft = 10; // for non-centered labels
 
 const int BG_COLOR = ILI9341_BLACK;
 
+String topRanksName[3];
+double topRanksTime[3];
+
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_MOSI, TFT_CLK, TFT_RST, TFT_MISO);
 TFT_Touch touch = TFT_Touch(DCS, DCLK, DIN, DOUT);
 
-Label *lblTitle, *lblSubtitle, *lblPenaltyTimeTitle, *lblPenaltyTime, *lblTime, *lblMistakes, *lblTotal, *lblTimeValue, *lblMistakesValue, *lblTotalValue, *lblGameOver;
+Label *lblTitle, *lblSubtitle, 
+  *lblPenaltyTimeTitle, *lblPenaltyTime, *lblPenaltyTimeContinue,
+  *lblSingle, *lblMulti,
+  *lblNameEntry, *lblNameInput,
+  *lblTime, *lblMistakes, *lblTotal, *lblTimeValue, *lblMistakesValue, *lblTotalValue, 
+  *lblGameOver;
+
+const int numPenaltyTimeButtons = 5, penaltyTimeButtonsStepSize = 5, penaltyTimeMinValue = 5;
+Label *penaltyTimeButtons[numPenaltyTimeButtons];
 
 GameState gameState = GameState::Start, lastGameState = GameState::Init;
 
@@ -63,6 +77,10 @@ String floatToString(float x, byte precision = 2) {
   char tmp[50];
   dtostrf(x, 0, precision, tmp);
   return String(tmp);
+}
+
+int getPenaltyTimeByIndex(int i) {
+  return i * penaltyTimeButtonsStepSize + penaltyTimeMinValue;
 }
 
 void setup()
@@ -91,8 +109,24 @@ void setup()
 
   // start
   lblPenaltyTimeTitle = new Label(&tft, lblSubtitle->getBottomY() + 30, ILI9341_WHITE, BG_COLOR, 2, "Strafzeit einstellen", true);
-  lblPenaltyTime = new Label(&tft, lblPenaltyTimeTitle->getBottomY() + 20, ILI9341_WHITE, BG_COLOR, 3, String(penaltyTime) + " s", true);
+  lblPenaltyTime = new Label(&tft, lblPenaltyTimeTitle->getBottomY() + 20, ILI9341_WHITE, BG_COLOR, 3, String(getPenaltyTimeByIndex(0)) + " s", true);
 
+  for (int i = 0; i < numPenaltyTimeButtons; i++) {
+    penaltyTimeButtons[i] = new Label(&tft, 
+      (i == 0) ? 10 : penaltyTimeButtons[i - 1]->getRightX() + 20, // x
+      lblPenaltyTime->getBottomY() + 20, // y
+      ILI9341_WHITE, BG_COLOR, 2, String(getPenaltyTimeByIndex(i)) + " s", true);
+  }
+  lblPenaltyTimeContinue = new Label(&tft, penaltyTimeButtons[0]->getBottomY() + 20, ILI9341_WHITE, BG_COLOR, 2, "Weiter", true);
+
+  // game type selection
+  lblSingle = new Label(&tft, lblSubtitle->getBottomY() + 30, ILI9341_WHITE, BG_COLOR, 3, "Singleplayer", true);
+  lblMulti = new Label(&tft, lblSingle->getBottomY() + 30, ILI9341_WHITE, BG_COLOR, 3, "Multiplayer", true);
+
+  // name entry
+  lblNameEntry = new Label(&tft, lblSubtitle->getBottomY() + 30, ILI9341_WHITE, BG_COLOR, 2, "Bitte gib deinen Namen ein", true);
+  lblNameInput = new Label(&tft, lblNameEntry->getBottomY() + 20, ILI9341_WHITE, BG_COLOR, 3, "", true);
+  
   // running
   lblTime = new Label(&tft, paddingLeft, lblSubtitle->getBottomY() + 30, ILI9341_WHITE, BG_COLOR, 3, "Zeit:", true);
   lblMistakes = new Label(&tft, paddingLeft, lblTime->getBottomY() + 10, ILI9341_WHITE, BG_COLOR, 3, "Fehler:", true);
@@ -122,8 +156,8 @@ void loop()
   while (1) {
     // fps
     #ifdef DEBUG
-      Serial.print("Time (main loop): ");
-      Serial.println(millis() - fpsCounterStart);
+      //Serial.print("Time (main loop): ");
+      //Serial.println(millis() - fpsCounterStart);
       fpsCounterStart = millis();
     #endif
 
@@ -144,29 +178,118 @@ void loop()
       #endif
       lblPenaltyTimeTitle->show();
       lblPenaltyTime->show();
+      for (int i = 0; i < numPenaltyTimeButtons; i++) {
+        penaltyTimeButtons[i]->show();
+      }
+      lblPenaltyTimeContinue->show();
 
       // don't enter this if the next time
       lastGameState = GameState::Start;
     }
     if (gameState == GameState::Start) {
-      penaltyTime = readPenaltyTime();
       lblPenaltyTime->setText(String(penaltyTime) + " s"); // updateLabel
 
-      if (lblPenaltyTime->clicked(touchX, touchY)) {
-        lblPenaltyTime->showBorder(ILI9341_WHITE);
+      // penalty time button click check
+      for (int i = 0; i < numPenaltyTimeButtons; i++) {
+        if (touched && penaltyTimeButtons[i]->clicked(touchX, touchY)) {
+          penaltyTimeButtons[i]->showBorder(ILI9341_WHITE);
+          penaltyTime = getPenaltyTimeByIndex(i); 
+        }
+        else if (touched) {
+          penaltyTimeButtons[i]->hideBorder();
+        }
       }
-      else if (touched) {
-        lblPenaltyTime->hideBorder();
-      }
-  
+
       // exit loop
-      if (!digitalRead(startStopPin)) { // LOW pin starts game
-        setGameState(GameState::Running);
+      if (touched && lblPenaltyTimeContinue->clicked(touchX, touchY)) { // LOW pin starts game
+        setGameState(GameState::GameTypeSelection);
       }
     }
     if (lastGameState == GameState::Start && gameState != GameState::Start) {
+      #ifdef DEBUG
+        Serial.println("exiting GameState::Start");
+      #endif
       lblPenaltyTimeTitle->hide();
       lblPenaltyTime->hide();
+      for (int i = 0; i < numPenaltyTimeButtons; i++) {
+        penaltyTimeButtons[i]->hide();
+      }
+      lblPenaltyTimeContinue->hide();
+    }
+
+    // GAME TYPE SELECTION
+    if (lastGameState != GameState::GameTypeSelection && gameState == GameState::GameTypeSelection) {
+      #ifdef DEBUG
+        Serial.println("GameState::GameTypeSelection");
+      #endif
+
+      // show buttons
+      lblSingle->show();
+      lblMulti->show();
+
+      // don't enter this if the next time
+      lastGameState = GameState::GameTypeSelection;
+    }
+    if (gameState == GameState::GameTypeSelection) {
+      if (gameType == GameType::Choice) { // not chosen yet
+        // single clicked
+        if (touched && lblSingle->clicked(touchX, touchY)) {
+          lblSingle->showBorder(ILI9341_WHITE);
+          gameType = GameType::Single;
+        }
+        else if (touched) {
+          lblSingle->hideBorder();
+        }
+        
+        // multi clicked
+        if (touched && lblMulti->clicked(touchX, touchY)) {
+          lblMulti->showBorder(ILI9341_WHITE);
+          gameType = GameType::Multi;
+        }
+        else if (touched) {
+          lblMulti->hideBorder();
+        }
+      }
+      
+      // exit loop to single player
+      if (gameType == GameType::Single && !digitalRead(startStopPin)) { // LOW pin starts game
+        setGameState(GameState::Running);
+        startMillis = millis(); // save start millis as soon as possible
+      }
+      if (gameType == GameType::Multi) {
+        setGameState(GameState::NameEntry);
+      }
+    }
+    if (lastGameState == GameState::GameTypeSelection && gameState != GameState::GameTypeSelection) {
+      #ifdef DEBUG
+        Serial.println("exiting GameState::GameTypeSelection");
+      #endif
+      lblSingle->hide();
+      lblMulti->hide();
+    }
+  
+  
+    // NAME ENTRY
+    if (lastGameState != GameState::NameEntry && gameState == GameState::NameEntry) {
+      #ifdef DEBUG
+        Serial.println("GameState::NameEntry");
+      #endif
+
+      lblNameEntry->show();
+      lblNameInput->show();
+      
+      // don't enter this if the next time
+      lastGameState = GameState::NameEntry;
+    }
+    if (gameState == GameState::NameEntry) {
+      // exit loop
+    }
+    if (lastGameState == GameState::NameEntry && gameState != GameState::NameEntry) {
+      #ifdef DEBUG
+        Serial.println("exiting GameState::NameEntry");
+      #endif
+      lblNameEntry->hide();
+      lblNameInput->hide();
     }
   
   
@@ -176,7 +299,6 @@ void loop()
         Serial.println("GameState::Running");
       #endif
       
-      startMillis = millis();
       lastMistake = 0;
       mistakesCount = 0;
       
@@ -208,7 +330,9 @@ void loop()
       }
     }
     if (lastGameState == GameState::Running && gameState != GameState::Running) {
-      
+      #ifdef DEBUG
+        Serial.println("exiting GameState::Running");
+      #endif
     }
   
   
@@ -233,6 +357,9 @@ void loop()
       }
     }
     if (lastGameState == GameState::Over && gameState != GameState::Over) {
+      #ifdef DEBUG
+        Serial.println("exiting GameState::Over");
+      #endif
       lblTime->hide();
       lblMistakes->hide();
       lblTotal->hide();
@@ -252,8 +379,3 @@ void setGameState(GameState newState) {
   lastGameState = gameState;
   gameState = newState;
 }
-
-int readPenaltyTime() {
-  return 5; // TODO
-}
-
