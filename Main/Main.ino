@@ -194,6 +194,10 @@ void loop()
         if (touched && penaltyTimeButtons[i]->clicked(touchX, touchY)) {
           penaltyTimeButtons[i]->showBorder(ILI9341_WHITE);
           penaltyTime = getPenaltyTimeByIndex(i); 
+          #ifdef DEBUG
+            Serial.print("penaltyTime = ");
+            Serial.println(penaltyTime);
+          #endif
         }
         else if (touched) {
           penaltyTimeButtons[i]->hideBorder();
@@ -222,6 +226,8 @@ void loop()
       #ifdef DEBUG
         Serial.println("GameState::GameTypeSelection");
       #endif
+
+      gameType = GameType::Choice;
 
       // show buttons
       lblSingle->show();
