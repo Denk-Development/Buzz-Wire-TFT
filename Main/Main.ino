@@ -21,7 +21,8 @@ enum GameState {
   NameEntry,
   Running,
   Over,
-  Ranks
+  Ranks,
+  Scoreboard
 };
 
 enum GameType {
@@ -51,9 +52,12 @@ const int paddingLeft = 10; // for non-centered labels
 
 const int BG_COLOR = ILI9341_BLACK;
 
+
+const int scoreboardLength = 4;
 String currentPlayerName;
-String topRanksName[3];
-double topRanksTime[3];
+String topRanksName[scoreboardLength];
+double currentPlayerTime;
+double topRanksTime[scoreboardLength];
 
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_MOSI, TFT_CLK, TFT_RST, TFT_MISO);
 TFT_Touch touch = TFT_Touch(DCS, DCLK, DIN, DOUT);
@@ -63,7 +67,10 @@ Label *lblTitle, *lblSubtitle,
   *lblSingle, *lblMulti,
   *lblNameEntry, *lblNameInput,
   *lblTime, *lblMistakes, *lblTotal, *lblTimeValue, *lblMistakesValue, *lblTotalValue, 
-  *lblGameOver;
+  *lblGameOver,
+  *lblBestPlayers;
+
+Label *lblScoreboard[scoreboardLength];
 
 Keyboard *kbNameEntry;
 
@@ -142,8 +149,12 @@ void setup()
 
   // over
   lblGameOver = new Label(&tft, lblTotal->getBottomY() + 30, ILI9341_BLUE, BG_COLOR, 3, "Game Over", true);
-  
-  delay(2000);
+
+  // scoreboard
+  lblBestPlayers = new Label(&tft, paddingLeft, lblSubtitle->getBottomY() + 30, ILI9341_WHITE, BG_COLOR, 3, "Beste Spieler", true);
+  for (int i = 0; i < scoreboardLength; i++) {
+    lblScoreboard[i] = new Label(&tft, paddingLeft, (i == 0) ? lblBestPlayers->getBottomY() + 20 : lblScoreboard[i - 1]->getBottomY() + 10, ILI9341_WHITE, BG_COLOR, 2, "#" + String(i + 1), true);
+  }
 }
 
 void loop()
@@ -151,7 +162,7 @@ void loop()
   int touchX, touchY;
   bool touched = false, released = false;
   
-  unsigned long startMillis, endMillis, lastMistake;
+  unsigned long startMillis, endMillis, lastMistake, scoreboardMillis;
   unsigned int mistakesCount;
 
   #ifdef DEBUG
@@ -288,6 +299,7 @@ void loop()
       #endif
 
       lblNameEntry->show();
+      lblNameInput->setText(""); // reset player name
       lblNameInput->show();
       kbNameEntry->show();
       
@@ -303,7 +315,7 @@ void loop()
       if (!digitalRead(startStopPin)) { // LOW pin starts game
         setGameState(GameState::Running);
         startMillis = millis(); // save start millis as soon as possible
-        currentPlayerName = lblNameInput.getText();
+        currentPlayerName = lblNameInput->getText();
       }
     }
     if (lastGameState == GameState::NameEntry && gameState != GameState::NameEntry) {
@@ -312,6 +324,8 @@ void loop()
       #endif
       lblNameEntry->hide();
       lblNameInput->hide();
+      kbNameEntry->hide();
+      
     }
   
   
@@ -338,7 +352,8 @@ void loop()
       double secondsElapsed = (double)(millis() - startMillis) / (double)1000;
       lblTimeValue->setText(floatToString(secondsElapsed, 1) + " s");
       lblMistakesValue->setText(String(mistakesCount));
-      lblTotalValue->setText(floatToString(secondsElapsed + mistakesCount * penaltyTime, 1) + " s");
+      currentPlayerTime = secondsElapsed + mistakesCount * penaltyTime;
+      lblTotalValue->setText(floatToString(currentPlayerTime, 1) + " s");
   
       // mistake detection
       if (!digitalRead(mistakePin) && (mistakesCount == 0 || millis() > lastMistake + minTimeBetweenTwoMistakes)) {
@@ -371,11 +386,11 @@ void loop()
     }
     if (gameState == GameState::Over) {
       if (millis() > endMillis + autoRestartMillis) {
-        setGameState(GameState::Start);
+        setGameState(gameType == GameType::Multi ? GameState::Scoreboard : GameState::GameTypeSelection);
       }
       // exit loop
       if (!digitalRead(startStopPin) && millis() > endMillis + minGameOverScreenMillis) { // LOW pin stops game over screen
-        setGameState(GameState::Start);
+        setGameState(gameType == GameType::Multi ? GameState::Scoreboard : GameState::GameTypeSelection);
       }
     }
     if (lastGameState == GameState::Over && gameState != GameState::Over) {
@@ -393,7 +408,43 @@ void loop()
 
 
     // SCOREBOARD
-    // TODO
+    if (lastGameState != GameState::Scoreboard && gameState == GameState::Scoreboard) {
+      #ifdef DEBUG
+        Serial.println("GameState::Scoreboard");
+        Serial.println(currentPlayerName);
+        Serial.println(currentPlayerTime);
+      #endif
+
+      scoreboardMillis = millis();
+
+      bool highscore = addScore(currentPlayerName, currentPlayerTime);
+
+      // show labels
+      lblBestPlayers->show();
+      for (int i = 0; i < scoreboardLength; i++) {
+        lblScoreboard[i]->show();
+      }
+
+      // don't enter this if the next time
+      lastGameState = GameState::Scoreboard;
+    }
+    if (gameState == GameState::Scoreboard) {
+
+      // exit state
+      if (!digitalRead(startStopPin) && millis() > scoreboardMillis + minGameOverScreenMillis) { // LOW pin stops game over screen
+        setGameState(GameState::NameEntry);
+      }
+    }
+    if (lastGameState == GameState::Scoreboard && gameState != GameState::Scoreboard) {
+      #ifdef DEBUG
+        Serial.println("exiting GameState::Scoreboard");
+      #endif
+      
+      lblBestPlayers->hide();
+      for (int i = 0; i < scoreboardLength; i++) {
+        lblScoreboard[i]->hide();
+      }
+    }
 
 
     // end of loop
@@ -406,3 +457,38 @@ void setGameState(GameState newState) {
   lastGameState = gameState;
   gameState = newState;
 }
+
+
+// return true if the score is a new highscore
+bool addScore(String name, double time) {
+  bool pushed = false;
+  for (int i = 0; i < scoreboardLength; i++) {
+    if (topRanksName[i].length() == 0 || topRanksTime[i] >= time) { // no rank exisiting or new score better
+      pushScore(i, name, time);
+      pushed = true;
+      break;
+    }
+  }
+  if (pushed) {
+    for (int i = 0; i < scoreboardLength; i++) {
+      // update labels
+      if (topRanksName[i].length() == 0) { break; }
+      lblScoreboard[i]->setText("#" + String(i + 1) + " " + topRanksName[i] + " - " + String(topRanksTime[i]));
+    }
+  }
+  return pushed;
+}
+
+void pushScore(int index, String name, double time) {
+  for (int i = scoreboardLength - 1; i >= index; i--) {
+    if (i == index) {
+      topRanksName[i] = name;
+      topRanksTime[i] = time;
+    }
+    else {
+      topRanksName[i] = topRanksName[i - 1];
+      topRanksTime[i] = topRanksTime[i - 1];
+    }
+  }
+}
+
