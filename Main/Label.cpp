@@ -1,3 +1,6 @@
+#ifndef Label_cpp
+#define Label_cpp
+
 #ifndef Adafruit_ILI9341
   #include "Adafruit_ILI9341.h"
 #endif
@@ -5,7 +8,7 @@
 class Label {
 public:
   Label()
-    : tft(0), x(0), y(0), color(ILI9341_WHITE), bgColor(ILI9341_BLACK), textSize(2), text(""), oldTextLength(0), centered(false) {};
+    : tft(0), x(0), y(0), color(ILI9341_WHITE), bgColor(ILI9341_BLACK), textSize(2), text("empty"), oldTextLength(0), centered(false) {};
   
   Label(Adafruit_ILI9341* tft, int x, int y, int color, int bgColor, int textSize, String text, bool hidden = false)
     : tft(tft), x(x), y(y), color(color), bgColor(bgColor), textSize(textSize), text(text), hidden(hidden), centered(false)
@@ -38,6 +41,14 @@ public:
       }
       this->refresh();
     }
+  }
+
+  void appendText(String appendix) {
+    this->setText(this->text + appendix);
+  }
+
+  String getText() const {
+    return this->text;
   }
 
   void setColor(int newColor) {
@@ -164,3 +175,5 @@ private:
     this->tft->drawRect(this->x, this->y, this->getRightX() - this->x, this->getBottomY() - this->y, this->borderColor);
   }
 };
+
+#endif

@@ -8,8 +8,9 @@
 // touch
 #include "TFT_Touch.h"
 
-// custom label class
+// custom classes
 #include "Label.cpp"
+#include "Keyboard.cpp"
 
 #define DEBUG
 
@@ -50,6 +51,7 @@ const int paddingLeft = 10; // for non-centered labels
 
 const int BG_COLOR = ILI9341_BLACK;
 
+String currentPlayerName;
 String topRanksName[3];
 double topRanksTime[3];
 
@@ -62,6 +64,8 @@ Label *lblTitle, *lblSubtitle,
   *lblNameEntry, *lblNameInput,
   *lblTime, *lblMistakes, *lblTotal, *lblTimeValue, *lblMistakesValue, *lblTotalValue, 
   *lblGameOver;
+
+Keyboard *kbNameEntry;
 
 const int numPenaltyTimeButtons = 5, penaltyTimeButtonsStepSize = 5, penaltyTimeMinValue = 5;
 Label *penaltyTimeButtons[numPenaltyTimeButtons];
@@ -126,6 +130,7 @@ void setup()
   // name entry
   lblNameEntry = new Label(&tft, lblSubtitle->getBottomY() + 30, ILI9341_WHITE, BG_COLOR, 2, "Bitte gib deinen Namen ein", true);
   lblNameInput = new Label(&tft, lblNameEntry->getBottomY() + 20, ILI9341_WHITE, BG_COLOR, 3, "", true);
+  kbNameEntry = new Keyboard("ABCDEFGHIJKLMNOPQRSTUVWXYZ", &tft, 10, lblNameInput->getBottomY() + 20, ILI9341_TFTHEIGHT - 20, ILI9341_WHITE, BG_COLOR, 3, true);
   
   // running
   lblTime = new Label(&tft, paddingLeft, lblSubtitle->getBottomY() + 30, ILI9341_WHITE, BG_COLOR, 3, "Zeit:", true);
@@ -144,7 +149,7 @@ void setup()
 void loop()
 {
   int touchX, touchY;
-  bool touched = false;
+  bool touched = false, released = false;
   
   unsigned long startMillis, endMillis, lastMistake;
   unsigned int mistakesCount;
@@ -164,6 +169,7 @@ void loop()
     // touch events
     if (touch.Pressed()) {
       touched = true;
+      released = false;
       
       // read coords
       touchX = touch.X(); 
@@ -283,12 +289,22 @@ void loop()
 
       lblNameEntry->show();
       lblNameInput->show();
+      kbNameEntry->show();
       
       // don't enter this if the next time
       lastGameState = GameState::NameEntry;
     }
     if (gameState == GameState::NameEntry) {
-      // exit loop
+      if (released && kbNameEntry->handleClick(touchX, touchY)) {
+        lblNameInput->appendText(kbNameEntry->getLastKeyVal());
+      }
+      
+      // exit loop to normal match
+      if (!digitalRead(startStopPin)) { // LOW pin starts game
+        setGameState(GameState::Running);
+        startMillis = millis(); // save start millis as soon as possible
+        currentPlayerName = lblNameInput.getText();
+      }
     }
     if (lastGameState == GameState::NameEntry && gameState != GameState::NameEntry) {
       #ifdef DEBUG
@@ -376,7 +392,12 @@ void loop()
     }
 
 
+    // SCOREBOARD
+    // TODO
+
+
     // end of loop
+    released = touched; // temporarily set (be sure you understand the implementation before editing this var)
     touched = false; // prevent multiple clicks with old coords
   }
 }
