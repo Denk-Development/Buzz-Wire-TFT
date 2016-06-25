@@ -8,7 +8,7 @@
 
 class Keyboard {
 public:
-  Keyboard(String chars, Adafruit_ILI9341* tft, int x, int y, int width, int color, int bgColor, int textSize, bool hidden, unsigned long millisBetweenClicks = 300) :
+  Keyboard(String chars, Adafruit_ILI9341* tft, int x, int y, int width, int color, int bgColor, int textSize, bool hidden, unsigned long millisBetweenClicks = 500) :
     chars(chars), hidden(hidden), millisBetweenClicks(millisBetweenClicks) {
       numChars = chars.length();
       //lblChars = (Label*)malloc(sizeof(Label) * numChars);
@@ -57,6 +57,10 @@ public:
     for (int i = 0; i < numChars; i++) {
       lblChars[i].hide();
     }
+  }
+
+  void setLastClickMillis(unsigned long newLastClickMillis) {
+    this->lastClickMillis = newLastClickMillis;
   }
 
   

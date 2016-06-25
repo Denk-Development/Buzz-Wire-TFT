@@ -47,6 +47,10 @@ public:
     this->setText(this->text + appendix);
   }
 
+  void removeLastChar() {
+    this->setText(this->text.substring(0, this->text.length() - 1));
+  }
+
   String getText() const {
     return this->text;
   }

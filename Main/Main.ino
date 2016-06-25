@@ -19,6 +19,7 @@ enum GameState {
   Start,
   GameTypeSelection,
   NameEntry,
+  Waiting,
   Running,
   Over,
   Ranks,
@@ -45,7 +46,7 @@ const uint8_t startStopPin = 2, mistakePin = 3;
 
 
 // game constants
-const unsigned long minGameTimeMillis = 1000, minTimeBetweenTwoMistakes = 1000, autoRestartMillis = 10000, minGameOverScreenMillis = minGameTimeMillis;
+const unsigned long minGameTimeMillis = 1000, minTimeBetweenTwoMistakes = 1000, autoRestartMillis = 10000, minGameOverScreenMillis = minGameTimeMillis, minTimeBetweenButtonClick = 300;
 
 // screen constants
 const int paddingLeft = 10; // for non-centered labels
@@ -66,6 +67,7 @@ Label *lblTitle, *lblSubtitle,
   *lblPenaltyTimeTitle, *lblPenaltyTime, *lblPenaltyTimeContinue,
   *lblSingle, *lblMulti,
   *lblNameEntry, *lblNameInput,
+  *lblStartByPressingButton,
   *lblTime, *lblMistakes, *lblTotal, *lblTimeValue, *lblMistakesValue, *lblTotalValue, 
   *lblGameOver,
   *lblBestPlayers;
@@ -73,11 +75,12 @@ Label *lblTitle, *lblSubtitle,
 Label *lblScoreboard[scoreboardLength];
 
 Keyboard *kbNameEntry;
+Label *lblKeyboardDelete, *lblKeyboardSpace;
 
 const int numPenaltyTimeButtons = 5, penaltyTimeButtonsStepSize = 5, penaltyTimeMinValue = 5;
 Label *penaltyTimeButtons[numPenaltyTimeButtons];
 
-GameState gameState = GameState::Start, lastGameState = GameState::Init;
+GameState gameState = GameState::GameTypeSelection, lastGameState = GameState::Init;
 
 GameType gameType = GameType::Choice;
 
@@ -138,6 +141,11 @@ void setup()
   lblNameEntry = new Label(&tft, lblSubtitle->getBottomY() + 30, ILI9341_WHITE, BG_COLOR, 2, "Bitte gib deinen Namen ein", true);
   lblNameInput = new Label(&tft, lblNameEntry->getBottomY() + 20, ILI9341_WHITE, BG_COLOR, 3, "", true);
   kbNameEntry = new Keyboard("ABCDEFGHIJKLMNOPQRSTUVWXYZ", &tft, 10, lblNameInput->getBottomY() + 20, ILI9341_TFTHEIGHT - 20, ILI9341_WHITE, BG_COLOR, 3, true);
+  lblKeyboardDelete = new Label(&tft, 245, lblNameInput->getBottomY() + 44, ILI9341_WHITE, BG_COLOR, 3, "<-", true);
+  lblKeyboardSpace = new Label(&tft, 220, lblNameInput->getBottomY() + 44, ILI9341_WHITE, BG_COLOR, 3, "_", true);
+
+  // start
+  lblStartByPressingButton = new Label(&tft, lblSubtitle->getBottomY() + 50, ILI9341_WHITE, BG_COLOR, 3, "Start druecken", true);
   
   // running
   lblTime = new Label(&tft, paddingLeft, lblSubtitle->getBottomY() + 30, ILI9341_WHITE, BG_COLOR, 3, "Zeit:", true);
@@ -162,7 +170,7 @@ void loop()
   int touchX, touchY;
   bool touched = false, released = false;
   
-  unsigned long startMillis, endMillis, lastMistake, scoreboardMillis;
+  unsigned long startMillis, endMillis, lastMistake, scoreboardMillis, lastButtonClicked = 0;
   unsigned int mistakesCount;
 
   #ifdef DEBUG
@@ -223,7 +231,8 @@ void loop()
 
       // exit loop
       if (touched && lblPenaltyTimeContinue->clicked(touchX, touchY)) { // LOW pin starts game
-        setGameState(GameState::GameTypeSelection);
+        kbNameEntry->setLastClickMillis(millis());
+        setGameState((gameType == GameType::Multi) ? GameState::NameEntry : GameState::Waiting);
       }
     }
     if (lastGameState == GameState::Start && gameState != GameState::Start) {
@@ -256,31 +265,16 @@ void loop()
     if (gameState == GameState::GameTypeSelection) {
       if (gameType == GameType::Choice) { // not chosen yet
         // single clicked
-        if (touched && lblSingle->clicked(touchX, touchY)) {
-          lblSingle->showBorder(ILI9341_WHITE);
+        if (released && lblSingle->clicked(touchX, touchY)) {
           gameType = GameType::Single;
         }
-        else if (touched) {
-          lblSingle->hideBorder();
-        }
-        
         // multi clicked
-        if (touched && lblMulti->clicked(touchX, touchY)) {
-          lblMulti->showBorder(ILI9341_WHITE);
+        if (released && lblMulti->clicked(touchX, touchY)) {
           gameType = GameType::Multi;
         }
-        else if (touched) {
-          lblMulti->hideBorder();
-        }
       }
-      
-      // exit loop to single player
-      if (gameType == GameType::Single && !digitalRead(startStopPin)) { // LOW pin starts game
-        setGameState(GameState::Running);
-        startMillis = millis(); // save start millis as soon as possible
-      }
-      if (gameType == GameType::Multi) {
-        setGameState(GameState::NameEntry);
+      else {
+        setGameState(GameState::Start);
       }
     }
     if (lastGameState == GameState::GameTypeSelection && gameState != GameState::GameTypeSelection) {
@@ -302,14 +296,30 @@ void loop()
       lblNameInput->setText(""); // reset player name
       lblNameInput->show();
       kbNameEntry->show();
+      lblKeyboardDelete->show();
+      lblKeyboardSpace->show();
       
       // don't enter this if the next time
       lastGameState = GameState::NameEntry;
     }
     if (gameState == GameState::NameEntry) {
+      // name input keyboard
       if (released && kbNameEntry->handleClick(touchX, touchY)) {
         lblNameInput->appendText(kbNameEntry->getLastKeyVal());
       }
+
+      // keyboard delete
+      if (released && lastButtonClicked + minTimeBetweenButtonClick < millis() && lblKeyboardDelete->clicked(touchX, touchY)) {
+        lastButtonClicked = millis();
+        lblNameInput->removeLastChar();
+      }
+
+      // keyboard space
+      if (released && lastButtonClicked + minTimeBetweenButtonClick < millis() && lblKeyboardSpace->clicked(touchX, touchY)) {
+        lastButtonClicked = millis();
+        lblNameInput->appendText(" ");
+      }
+      
       
       // exit loop to normal match
       if (!digitalRead(startStopPin)) { // LOW pin starts game
@@ -325,7 +335,35 @@ void loop()
       lblNameEntry->hide();
       lblNameInput->hide();
       kbNameEntry->hide();
+      lblKeyboardDelete->hide();
+      lblKeyboardSpace->hide();
       
+    }
+  
+  
+    // WAITING
+    if (lastGameState != GameState::Waiting && gameState == GameState::Waiting) {
+      #ifdef DEBUG
+        Serial.println("GameState::Waiting");
+      #endif
+
+      lblStartByPressingButton->show();
+      
+      // don't enter this if the next time
+      lastGameState = GameState::Waiting;
+    }
+    if (gameState == GameState::Waiting) {
+      // exit loop to normal match
+      if (!digitalRead(startStopPin)) { // LOW pin starts game
+        setGameState(GameState::Running);
+        startMillis = millis(); // save start millis as soon as possible
+      }
+    }
+    if (lastGameState == GameState::Waiting && gameState != GameState::Waiting) {
+      #ifdef DEBUG
+        Serial.println("exiting GameState::Waiting");
+      #endif
+      lblStartByPressingButton->hide();
     }
   
   
@@ -390,7 +428,7 @@ void loop()
       }
       // exit loop
       if (!digitalRead(startStopPin) && millis() > endMillis + minGameOverScreenMillis) { // LOW pin stops game over screen
-        setGameState(gameType == GameType::Multi ? GameState::Scoreboard : GameState::GameTypeSelection);
+        setGameState(gameType == GameType::Multi ? GameState::Scoreboard : GameState::Waiting);
       }
     }
     if (lastGameState == GameState::Over && gameState != GameState::Over) {
@@ -432,6 +470,7 @@ void loop()
 
       // exit state
       if (!digitalRead(startStopPin) && millis() > scoreboardMillis + minGameOverScreenMillis) { // LOW pin stops game over screen
+        kbNameEntry->setLastClickMillis(millis());
         setGameState(GameState::NameEntry);
       }
     }
@@ -491,4 +530,3 @@ void pushScore(int index, String name, double time) {
     }
   }
 }
-
