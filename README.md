@@ -40,5 +40,6 @@ A2|DIN||Touch
 ![card7a_rev1](https://cloud.githubusercontent.com/assets/6556307/16361677/4e9e319e-3b98-11e6-8892-3bbfdd0ec22e.png)
 [Source](https://www.pjrc.com/teensy/pinout.html)
 
-
 ## Photos
+![System](https://cloud.githubusercontent.com/assets/6556307/16361660/b8320366-3b97-11e6-9721-599fb8ce1a02.jpg)
+![Screen close up](https://cloud.githubusercontent.com/assets/6556307/16361644/7b66b332-3b97-11e6-9503-c388896adc2b.jpg)
