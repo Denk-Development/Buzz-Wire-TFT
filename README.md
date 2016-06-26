@@ -39,3 +39,6 @@ A2|DIN||Touch
 ### Teensy 3.2 Pin Assignment Font Side
 ![card7a_rev1](https://cloud.githubusercontent.com/assets/6556307/16361677/4e9e319e-3b98-11e6-8892-3bbfdd0ec22e.png)
 [Source](https://www.pjrc.com/teensy/pinout.html)
+
+
+## Photos
