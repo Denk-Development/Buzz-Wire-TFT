@@ -306,7 +306,9 @@ void loop()
     if (gameState == GameState::NameEntry) {
       // name input keyboard
       if (released && kbNameEntry->handleClick(touchX, touchY)) {
-        lblNameInput->appendText(kbNameEntry->getLastKeyVal());
+        if (lblNameInput->getText().length() <= 12) { // max chars per line
+          lblNameInput->appendText(kbNameEntry->getLastKeyVal());
+        }
       }
 
       // keyboard delete
@@ -535,7 +537,7 @@ bool addScore(String name, double time) {
 void updateScoreboardLabels() {
   for (int i = 0; i < scoreboardLength; i++) {
     // update labels
-    lblScoreboard[i]->setText("#" + String(i + 1) + ((topRanksName[i].length() == 0) ? ("") : (" " + topRanksName[i] + " - " + String(topRanksTime[i]))));
+    lblScoreboard[i]->setText("#" + String(i + 1) + ((topRanksName[i].length() == 0) ? ("") : (" " + topRanksName[i] + " - " + floatToString(topRanksTime[i], 1))));
   }
 }
 
