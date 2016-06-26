@@ -42,11 +42,11 @@ const uint8_t TFT_RST = 8, TFT_DC = 9, TFT_CS = 10, TFT_MOSI = 11, TFT_MISO = 12
 const uint8_t DOUT = A0, DIN = A2, DCS = 7, DCLK = 6;
 
 // buzz wire pinning
-const uint8_t startStopPin = 2, mistakePin = 3;
+const uint8_t startStopPin = 2, mistakePin = 3, buzzerPin = 4;
 
 
 // game constants
-const unsigned long minGameTimeMillis = 1000, minTimeBetweenTwoMistakes = 1000, autoRestartMillis = 10000, minGameOverScreenMillis = minGameTimeMillis, minTimeBetweenButtonClick = 300;
+const unsigned long minGameTimeMillis = 1000, minTimeBetweenTwoMistakes = 1000, autoRestartMillis = 10000, minGameOverScreenMillis = minGameTimeMillis, minTimeBetweenButtonClick = 300, millisBuzzerActive = 1000;
 
 // screen constants
 const int paddingLeft = 10; // for non-centered labels
@@ -107,6 +107,7 @@ void setup()
   // buzz wire pins
   pinMode(startStopPin, INPUT_PULLUP);
   pinMode(mistakePin, INPUT_PULLUP);
+  pinMode(buzzerPin, OUTPUT);
 
   // init
   tft.begin();
@@ -402,6 +403,8 @@ void loop()
         mistakesCount++;
         lastMistake = millis();
       }
+
+      digitalWrite(buzzerPin, mistakesCount > 0 && lastMistake + millisBuzzerActive > millis()); // buzzer
   
       // exit loop
       if (!digitalRead(startStopPin) && millis() > startMillis + minGameTimeMillis) { // LOW pin stops game and min time elapsed
