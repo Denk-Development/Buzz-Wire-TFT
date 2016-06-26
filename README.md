@@ -1,5 +1,7 @@
-# Buzz-Wire-LCD
-Arduino powered Version of the game Buzz Wire with an LCD screen
+# Buzz-Wire-TFT
+Arduino powered Version of the game Buzz Wire with an TFT touch screen. This project was developed for [Denk Development](http://development.timodenk.com/)'s customer [Kreative Kiste](http://kreativekiste.de/).
+
+<img src="https://cloud.githubusercontent.com/assets/6556307/16361660/b8320366-3b97-11e6-9721-599fb8ce1a02.jpg" width="400" />
 
 ## Features
  * Single- and multiplayer
@@ -8,7 +10,7 @@ Arduino powered Version of the game Buzz Wire with an LCD screen
 
 ## Components
  * [Teensy 3.2 microcontroller](https://www.pjrc.com/store/teensy32.html)
- * TFT touch screen
+ * TFT touch screen (e.g. 2.4" 320*240 TFT LCD Touchscreen with PCB ILI9341)
  * Buzz-Wire hardware
 
 ## Libraries
@@ -37,8 +39,25 @@ A0|DOUT||Touch
 A2|DIN||Touch
 
 ### Teensy 3.2 Pin Assignment Font Side
+[Image source](https://www.pjrc.com/teensy/pinout.html)
+
 ![card7a_rev1](https://cloud.githubusercontent.com/assets/6556307/16361677/4e9e319e-3b98-11e6-8892-3bbfdd0ec22e.png)
-[Source](https://www.pjrc.com/teensy/pinout.html)
+
+## System States
+
+```C++
+enum GameState {
+  Init,
+  Start,
+  GameTypeSelection,
+  NameEntry,
+  Waiting,
+  Running,
+  Over,
+  Ranks,
+  Scoreboard
+};
+```
 
 ## Photos
 ![System](https://cloud.githubusercontent.com/assets/6556307/16361660/b8320366-3b97-11e6-9721-599fb8ce1a02.jpg)
