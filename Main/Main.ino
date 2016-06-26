@@ -72,7 +72,7 @@ Label *lblTitle, *lblSubtitle,
   *lblGameOver,
   *lblBestPlayers;
 
-Label *lblScoreboard[scoreboardLength];
+Label *lblScoreboard[scoreboardLength], *lblScoreboardRemove[scoreboardLength];
 
 Keyboard *kbNameEntry;
 Label *lblKeyboardDelete, *lblKeyboardSpace;
@@ -162,6 +162,7 @@ void setup()
   lblBestPlayers = new Label(&tft, paddingLeft, lblSubtitle->getBottomY() + 30, ILI9341_WHITE, BG_COLOR, 3, "Beste Spieler", true);
   for (int i = 0; i < scoreboardLength; i++) {
     lblScoreboard[i] = new Label(&tft, paddingLeft, (i == 0) ? lblBestPlayers->getBottomY() + 20 : lblScoreboard[i - 1]->getBottomY() + 10, ILI9341_WHITE, BG_COLOR, 2, "#" + String(i + 1), true);
+    lblScoreboardRemove[i] = new Label(&tft, 300, (i == 0) ? lblBestPlayers->getBottomY() + 20 : lblScoreboard[i - 1]->getBottomY() + 10, ILI9341_WHITE, BG_COLOR, 2, "X", true);
   }
 }
 
@@ -170,7 +171,7 @@ void loop()
   int touchX, touchY;
   bool touched = false, released = false;
   
-  unsigned long startMillis, endMillis, lastMistake, scoreboardMillis, lastButtonClicked = 0;
+  unsigned long startMillis, endMillis, lastMistake, scoreboardMillis, lastButtonClicked = 0, waitingStateEntered;
   unsigned int mistakesCount;
 
   #ifdef DEBUG
@@ -348,13 +349,14 @@ void loop()
       #endif
 
       lblStartByPressingButton->show();
+      waitingStateEntered = millis();
       
       // don't enter this if the next time
       lastGameState = GameState::Waiting;
     }
     if (gameState == GameState::Waiting) {
       // exit loop to normal match
-      if (!digitalRead(startStopPin)) { // LOW pin starts game
+      if (waitingStateEntered + minTimeBetweenButtonClick < millis() && !digitalRead(startStopPin)) { // LOW pin starts game
         setGameState(GameState::Running);
         startMillis = millis(); // save start millis as soon as possible
       }
@@ -461,12 +463,27 @@ void loop()
       lblBestPlayers->show();
       for (int i = 0; i < scoreboardLength; i++) {
         lblScoreboard[i]->show();
+        lblScoreboardRemove[i]->show();
       }
 
       // don't enter this if the next time
       lastGameState = GameState::Scoreboard;
     }
     if (gameState == GameState::Scoreboard) {
+      // remove scoreboard list item click
+      if (released && lastButtonClicked + minTimeBetweenButtonClick < millis()) {
+        for (int i = 0; i < scoreboardLength; i++) {
+          if (lblScoreboardRemove[i]->clicked(touchX, touchY)) {
+            #ifdef DEBUG
+              Serial.print("remove score ");
+              Serial.println(i);
+            #endif
+            lastButtonClicked = millis();
+            spliceScore(i);
+            updateScoreboardLabels();
+          }
+        }
+      }
 
       // exit state
       if (!digitalRead(startStopPin) && millis() > scoreboardMillis + minGameOverScreenMillis) { // LOW pin stops game over screen
@@ -482,6 +499,7 @@ void loop()
       lblBestPlayers->hide();
       for (int i = 0; i < scoreboardLength; i++) {
         lblScoreboard[i]->hide();
+        lblScoreboardRemove[i]->hide();
       }
     }
 
@@ -509,13 +527,16 @@ bool addScore(String name, double time) {
     }
   }
   if (pushed) {
-    for (int i = 0; i < scoreboardLength; i++) {
-      // update labels
-      if (topRanksName[i].length() == 0) { break; }
-      lblScoreboard[i]->setText("#" + String(i + 1) + " " + topRanksName[i] + " - " + String(topRanksTime[i]));
-    }
+    updateScoreboardLabels();
   }
   return pushed;
+}
+
+void updateScoreboardLabels() {
+  for (int i = 0; i < scoreboardLength; i++) {
+    // update labels
+    lblScoreboard[i]->setText("#" + String(i + 1) + ((topRanksName[i].length() == 0) ? ("") : (" " + topRanksName[i] + " - " + String(topRanksTime[i]))));
+  }
 }
 
 void pushScore(int index, String name, double time) {
@@ -530,3 +551,17 @@ void pushScore(int index, String name, double time) {
     }
   }
 }
+
+void spliceScore(int index) {
+  for (int i = index; i < scoreboardLength; i++) {
+    if (i != scoreboardLength - 1) {
+      topRanksName[i] = topRanksName[i + 1];
+      topRanksTime[i] = topRanksTime[i + 1];
+    }
+    else {
+      topRanksName[i] = "";
+      topRanksTime[i] = 0;
+    }
+  }
+}
+

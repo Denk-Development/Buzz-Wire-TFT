@@ -5,6 +5,8 @@
   #include "Adafruit_ILI9341.h"
 #endif
 
+//#define BORDER_ENABLED
+
 class Label {
 public:
   Label()
@@ -99,7 +101,9 @@ public:
 
   void hideBorder() {
     this->borderShown = false;
-    this->tft->drawRect(this->x, this->y, this->getRightX() - this->x, this->getBottomY() - this->y, this->bgColor);
+    #ifdef BORDER_ENABLED
+      this->tft->drawRect(this->x, this->y, this->getRightX() - this->x, this->getBottomY() - this->y, this->bgColor);
+    #endif
   }
 
   bool clicked(int x, int y) const {
@@ -176,7 +180,9 @@ private:
   }
 
   void drawBorder() {
-    this->tft->drawRect(this->x, this->y, this->getRightX() - this->x, this->getBottomY() - this->y, this->borderColor);
+    #ifdef BORDER_ENABLED
+      this->tft->drawRect(this->x, this->y, this->getRightX() - this->x, this->getBottomY() - this->y, this->borderColor);
+    #endif
   }
 };
 
